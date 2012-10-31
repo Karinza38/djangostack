@@ -15,7 +15,7 @@ class DjangoStack(TaskSet):
 
     def __init__(self,projectName,apacheConfigName='apache_site',scmType='mercurial',databaseName=None,databaseUser=None,databasePassword=None,djangoProjectPath=None,
                     djangoAdminUser=DEFAULT_DJANGO_ADMIN_USER, djangoAdminEmail=DEFAULT_DJANGO_ADMIN_EMAIL,
-                    djangoAdminPassword=DEFAULT_DJANGO_ADMIN_PASSWORD):
+                    djangoAdminPassword=DEFAULT_DJANGO_ADMIN_PASSWORD,databaseDumpType='SQL'):
         self.PROJECT_NAME=projectName
         self.PYTHON_DEPENDENCIES=self.DEFAULT_PYTHON_DEPENDENCIES
         self.SCM_TYPE=scmType
@@ -27,6 +27,7 @@ class DjangoStack(TaskSet):
         self.DJANGO_ADMIN_PASSWORD=djangoAdminPassword
         self.DJANGO_ADMIN_EMAIL=djangoAdminEmail
         self.APACHE_CONFIG_NAME=apacheConfigName
+        self.DATABASE_DUMP_TYPE=databaseDumpType
         self.repositories=[]
         self.packages=[]
         self.packages.extend(self.DEFAULT_ADDITIONAL_PACKAGES)
@@ -148,7 +149,7 @@ class DjangoStack(TaskSet):
 
     @task_method
     def createDatabase(self):
-        postgresql_database_ensure(self.DATABASE_NAME,owner=self.DATABASE_USER,encoding='utf8')
+        postgresql_database_ensure(self.DATABASE_NAME,owner=self.DATABASE_USER,encoding='utf8',template='template0',locale='en_US.UTF-8')
 
     @task_method
     def createApacheSite(self):
@@ -175,7 +176,10 @@ class DjangoStack(TaskSet):
             put("dbdump.txt","/var/lib/postgresql/",use_sudo=True)
         sudo("chown postgres /var/lib/postgresql/dbdump.txt")
 
-        sudo("cd /var/lib/postgresql; psql %s < dbdump.txt"%self.DATABASE_NAME,user="postgres")
+        if self.DATABASE_DUMP_TYPE=="SQL":
+            sudo("cd /var/lib/postgresql; psql %s < dbdump.txt"%self.DATABASE_NAME,user="postgres")
+        else:
+            sudo("pg_restore dbdump.txt")
 
     @task_method
     def syncDb(self):
