@@ -125,7 +125,7 @@ class DjangoStack(TaskSet):
   
         # retrieve the IdentityFile:
         result = local('vagrant ssh-config | grep IdentityFile', capture=True)
-        env.key_filename = result.split()[1] # parse IdentityFile
+        env.key_filename = result.split()[1][1:-1] # parse IdentityFile
 
 
     @task_method
@@ -153,7 +153,6 @@ class DjangoStack(TaskSet):
 
     @task_method
     def createApacheSite(self):
-        package_ensure("libapache2-mod-python")
         put("%s"%self.APACHE_CONFIG_NAME,"/etc/apache2/sites-enabled/%s"%self.PROJECT_NAME,use_sudo=True)
 
         if exists("/etc/apache2/sites-enabled/000-default"):
@@ -179,7 +178,7 @@ class DjangoStack(TaskSet):
         if self.DATABASE_DUMP_TYPE=="SQL":
             sudo("cd /var/lib/postgresql; psql %s < dbdump.txt"%self.DATABASE_NAME,user="postgres")
         else:
-            sudo("pg_restore dbdump.txt")
+            sudo("cd /var/lib/postgresql; pg_restore -d %s dbdump.txt"%self.DATABASE_NAME,user="postgres")
 
     @task_method
     def syncDb(self):
