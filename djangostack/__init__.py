@@ -7,7 +7,7 @@ import time
 
 class DjangoStack(TaskSet):
 
-    DEFAULT_PYTHON_DEPENDENCIES=['psycopg2','django','south']
+    DEFAULT_PYTHON_DEPENDENCIES=['psycopg2','south']
     DEFAULT_ADDITIONAL_PACKAGES=['vim',]
     DEFAULT_DJANGO_ADMIN_USER='admin'
     DEFAULT_DJANGO_ADMIN_PASSWORD='notagoodpassword'
@@ -15,9 +15,13 @@ class DjangoStack(TaskSet):
 
     def __init__(self,projectName,apacheConfigName='apache_site',scmType='mercurial',databaseName=None,databaseUser=None,databasePassword=None,djangoProjectPath=None,
                     djangoAdminUser=DEFAULT_DJANGO_ADMIN_USER, djangoAdminEmail=DEFAULT_DJANGO_ADMIN_EMAIL,
-                    djangoAdminPassword=DEFAULT_DJANGO_ADMIN_PASSWORD,databaseDumpType='SQL'):
+                    djangoAdminPassword=DEFAULT_DJANGO_ADMIN_PASSWORD,databaseDumpType='SQL',djangoVersionNumber=""):
         self.PROJECT_NAME=projectName
         self.PYTHON_DEPENDENCIES=self.DEFAULT_PYTHON_DEPENDENCIES
+        if djangoVersionNumber!="":
+            self.PYTHON_DEPENDENCIES.append("django==%s"%djangoVersionNumber)
+        else:
+            self.PYTHON_DEPENDENCIES.append("django")
         self.SCM_TYPE=scmType
         self.DATABASE_NAME=databaseName
         self.DATABASE_USER=databaseUser
