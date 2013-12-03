@@ -212,7 +212,7 @@ class DjangoStack(TaskSet):
 
     @task_method
     def restartServices(self):
-        sudo("service apache2 restart")
+        sudo("service apache2 restart",pty=False)
         sudo("service postgresql restart")
 
     @task_method
