@@ -1,14 +1,20 @@
 import time
+import datetime
 
 from taskset import TaskSet, task_method
 from fabric.api import *
-from fabric.contrib.files import exists
+from fabric.contrib.files import exists, append
 from cuisine import *
 from cuisine_postgresql import postgresql_role_ensure, \
     postgresql_database_ensure
 
 
 class DjangoStack(TaskSet):
+    deploy_scm = True  # Deploy SCM
+    deploy_database = True  # Deploy Database
+    deploy_django = True  # Deploy Django
+    deploy_web_server = True  # Deploy Web Server
+    restore_database = True  # Restore Database
     WEB_SERVERS = ['apache', 'nginx']
     default_additional_packages = ['vim', 'gettext']  # System packages to install
     # Python packages to install
@@ -34,13 +40,23 @@ class DjangoStack(TaskSet):
     default_django_admin_password = 'notagoodpassword'
     default_django_admin_email = 'admin@example.com'
     django_version_number = ''  # If not specified the latest version will be installed
+    django_locale_path = None  # Django locale directory path
+    # Use transifex to force pull updated translations before making and compiling translations -
+    # django_locale_path must contain a .tx directory which contains the transifex config file
+    use_transifex = False
+    transifexrc_name = None  # Local .transifexrc file name
 
     def __init__(self, project_name, **kwargs):
         self.project_name = project_name
+        self.deploy_scm = kwargs.get('deploy_scm', self.deploy_scm)
+        self.deploy_database = kwargs.get('deploy_database', self.deploy_database)
+        self.deploy_django = kwargs.get('deploy_django', self.deploy_django)
+        self.deploy_web_server = kwargs.get('deploy_web_server', self.deploy_web_server)
+        self.restore_database = kwargs.get('restore_database', self.restore_database)
         self.python_dependencies = self.default_python_dependencies
         self.web_server = kwargs.get('web_server', self.web_server)
-        if self.web_server not in self.WEB_SERVERS:
-            raise InvalidKwargsException(
+        if self.deploy_web_server and self.web_server not in self.WEB_SERVERS:
+            raise InvalidArgumentException(
                 '%s is not a valid web_server. Options are: %s' %
                 (self.web_server, self.WEB_SERVERS)
             )
@@ -50,8 +66,9 @@ class DjangoStack(TaskSet):
         self.uwsgi_ini_path = kwargs.get('uwsgi_ini_path', self.uwsgi_ini_path)
         self.uwsgi_params_name = kwargs.get('uwsgi_params_name', self.uwsgi_params_name)
         self.uwsgi_params_path = kwargs.get('uwsgi_params_path', self.uwsgi_params_path)
-        if self.web_server == 'nginx' and (not self.uwsgi_ini_path or not self.uwsgi_params_path):
-            raise InvalidKwargsException(
+        if self.deploy_web_server and self.web_server == 'nginx' and \
+                (not self.uwsgi_ini_path or not self.uwsgi_params_path):
+            raise InvalidArgumentException(
                 'uwsgi_ini_path and uwsgi_params_path must be specified if web_server is '
                 'set to nginx. You can set uwsgi_ini_name and uwsgi_params_name to None '
                 '(default) if you know these files will exist on the server or in a cloned '
@@ -78,10 +95,20 @@ class DjangoStack(TaskSet):
             kwargs.get('default_django_admin_email', self.default_django_admin_email)
         self.django_version_number = \
             kwargs.get('django_version_number', self.django_version_number)
-        if self.django_version_number != '':
-            self.python_dependencies.append('django==%s' % self.django_version_number)
-        else:
-            self.python_dependencies.append('django')
+        self.django_locale_path = kwargs.get('django_locale_path', self.django_locale_path)
+        if self.deploy_django:
+            if self.django_version_number != '':
+                self.python_dependencies.append('django==%s' % self.django_version_number)
+            else:
+                self.python_dependencies.append('django')
+        self.use_transifex = kwargs.get('use_transifex', self.use_transifex)
+        self.transifexrc_name = kwargs.get('transifexrc_name', self.transifexrc_name)
+        if self.use_transifex:
+            if not self.transifexrc_name:
+                raise InvalidArgumentException(
+                    'transifex_name must be specified if use_transifex is True'
+                )
+            self.python_dependencies.append('transifex-client')
         self.repositories = []
         self.packages = []
         self.packages.extend(self.default_additional_packages)
@@ -106,64 +133,112 @@ class DjangoStack(TaskSet):
     def add_post_build_hook(self, func):
         self.post_build_hooks.append(func)
 
+    def _validate_boolean_input(self, input):
+        if input not in ['y', 'Y', 'n', 'N']:
+            raise InvalidArgumentException('Please enter y (yes) or n (no).')
+        return input
+
+    def _pre_build(self):
+        with mode_sudo():
+            if exists('~/.djangostack'):
+                print('\nIt appears that DjangoStack has been deployed to this server before:')
+                run('cat ~/.djangostack')
+                deploy = prompt(
+                    'Are you sure you wish to continue? [y/n]',
+                    validate=self._validate_boolean_input
+                )
+                if deploy.lower() == 'y':
+                    run('rm ~/.djangostack')
+                else:
+                    abort('DjangoStack deployment aborted.')
+
+    def _post_build(self):
+        now = datetime.datetime.now()
+        sudo('touch ~/.djangostack')
+        append(
+            '~/.djangostack',
+            [
+                'Deployed on: %s at %s' % (now.strftime('%d/%m/%Y'), now.strftime('%H:%M:%S')),
+                'SCM Deployed: %s' % self.deploy_scm,
+                'Database Deployed: %s' % self.deploy_database,
+                'Django Deployed: %s' % self.deploy_django,
+                'Web Server Deployed: %s' % self.deploy_web_server,
+                'Database Restored: %s' % self.restore_database
+            ],
+            use_sudo=True
+        )
+
     @task_method(default=True)
     def setup_stack(self):
+        self._pre_build()
+
         package_update()
 
         self.run_pre_build_hooks()
 
-        self.setup_scm()
-        self.setup_postgres()
+        if self.deploy_scm:
+            self.setup_scm()
+
+        if self.deploy_database:
+            self.setup_postgres()
+
         self.setup_additional_packages()
         self.setup_python()
 
-        if self.web_server == 'apache':
-            self.setup_apache()
-        elif self.web_server == 'nginx':
-            self.setup_nginx()
+        if self.deploy_web_server:
+            if self.web_server == 'apache':
+                self.setup_apache()
+            elif self.web_server == 'nginx':
+                self.setup_nginx()
 
-        self.create_database_user()
-        self.create_database()
+        if self.deploy_database:
+            self.create_database_user()
+            self.create_database()
 
-        self.setup_bitbucket_key()
-        self.checkout_code()
+        if self.deploy_scm:
+            self.setup_bitbucket_key()
+            self.checkout_code()
 
-        self.install_django_project_requirements()
-        self.setup_web_server()
+        if self.deploy_django:
+            self.install_django_project_requirements()
 
-        self.restore_database_dump()
-        self.syncdb()
-        self.collect_static()
-        self.move_local_settings_file()
+        if self.deploy_web_server:
+            self.setup_web_server()
+
+        if self.deploy_database and self.restore_database:
+            self.restore_database_dump()
+
+        if self.deploy_django:
+            self.syncdb()
+            self.collect_static()
+            self.move_local_settings_file()
+            self.make_and_compile_messages(use_transifex=self.use_transifex)
 
         self.run_post_build_hooks()
 
         self.restart_services()
 
-    @task_method
+        self._post_build()
+
     def run_pre_build_hooks(self):
         for hook in self.pre_build_hooks:
             hook()
 
-    @task_method
     def setup_scm(self):
         if self.scm_type == 'mercurial':
             package_ensure('mercurial')
         elif self.scm_type.lower() == 'git':
             package_ensure('git')
 
-    @task_method
     def setup_postgres(self):
         package_ensure('postgresql')
         package_ensure('postgresql-client')
         package_ensure('libpq-dev')
 
-    @task_method
     def setup_additional_packages(self):
         for package_name in self.packages:
             package_ensure(package_name)
 
-    @task_method
     def setup_python(self):
         package_ensure('build-essential')
         package_ensure('python')
@@ -173,15 +248,14 @@ class DjangoStack(TaskSet):
         for dependency in self.python_dependencies:
             sudo('pip install %s' % dependency)
 
-    @task_method
     def setup_apache(self, destroy_nginx=True):
         if destroy_nginx:
             with mode_sudo():
                 with warn_only():
                     run('service nginx stop')
-                run('apt-get -y purge nginx')
+                    run('/usr/bin/yes | sudo pip uninstall uwsgi')
+                run('apt-get -y purge nginx nginx-common')
                 run('apt-get -y autoremove')
-                run('/usr/bin/yes | sudo pip uninstall uwsgi')
 
         had_apache = package_ensure('apache2')
         package_ensure('libapache2-mod-python')
@@ -192,7 +266,6 @@ class DjangoStack(TaskSet):
             local('vagrant reload')
             time.sleep(15)
 
-    @task_method
     def setup_nginx(self, destroy_apache=True):
         if destroy_apache:
             with mode_sudo():
@@ -204,11 +277,9 @@ class DjangoStack(TaskSet):
         package_ensure('nginx')
         sudo('pip install uwsgi')
 
-    @task_method
     def create_database_user(self):
         postgresql_role_ensure(self.database_user, self.database_password, createdb=True)
 
-    @task_method
     def create_database(self):
         postgresql_database_ensure(
             self.database_name,
@@ -218,7 +289,6 @@ class DjangoStack(TaskSet):
             locale='en_US.UTF-8'
         )
 
-    @task_method
     def setup_bitbucket_key(self):
         with mode_sudo():
             dir_ensure('/root/.ssh/')
@@ -236,7 +306,6 @@ class DjangoStack(TaskSet):
             run('mv ~/id_rsa.pub /root/.ssh/')
             run("echo '%s' >> /root/.ssh/known_hosts" % bitbuckethost)
 
-    @task_method
     def checkout_code(self):
         scm_command = scm_dir = scm_ignore = None
         if self.scm_type.lower() == 'mercurial':
@@ -261,13 +330,11 @@ class DjangoStack(TaskSet):
                 run('cp /tmp/%s/%s %s' % (self.project_name, scm_ignore, destination))
                 run('rm -fr /tmp/%s/' % self.project_name)
 
-    @task_method
     def install_django_project_requirements(self):
         if self.django_project_requirements_path:
             with mode_sudo():
                 run('pip install -r %s' % self.django_project_requirements_path)
 
-    @task_method
     def setup_web_server(self):
         if self.web_server == 'apache':
             with mode_sudo():
@@ -305,7 +372,6 @@ class DjangoStack(TaskSet):
                         '%s' % self.uwsgi_params_name, '%s' % self.uwsgi_params_path, use_sudo=True
                     )
 
-    @task_method
     def restore_database_dump(self):
         with mode_sudo():
             if not exists('/var/lib/postgresql/dbdump.txt'):
@@ -324,7 +390,6 @@ class DjangoStack(TaskSet):
                     user='postgres'
                 )
 
-    @task_method
     def syncdb(self):
         if self.django_project_path:
             sudo(
@@ -332,7 +397,6 @@ class DjangoStack(TaskSet):
                 'python manage.py migrate --noinput;' % self.django_project_path
             )
 
-    @task_method
     def collect_static(self):
         if self.django_project_path:
             with mode_sudo():
@@ -340,7 +404,6 @@ class DjangoStack(TaskSet):
                     run('mkdir -p %s' % self.django_static_path)
                 run('cd %s;python manage.py collectstatic --noinput' % self.django_project_path)
 
-    @task_method
     def move_local_settings_file(self):
         if self.django_local_settings_name and self.django_local_settings_path:
             put(
@@ -348,22 +411,40 @@ class DjangoStack(TaskSet):
                 use_sudo=True
             )
 
-    @task_method
+    def make_and_compile_messages(self, use_transifex=False):
+        if use_transifex:
+            put(self.transifexrc_name, '~/', use_sudo=True)
+            if self.django_locale_path:
+                if dir_exists('%s.tx' % self.django_locale_path):
+                    sudo('cd %s;tx pull -f' % self.django_locale_path)
+                else:
+                    warn(
+                        'Could not find .tx directory in the locale directory. '
+                        'Could not pull transifex files.'
+                    )
+        if self.django_project_path:
+            with mode_sudo():
+                run('cd %s;python manage.py makemessages -a' % self.django_project_path)
+                run(
+                    'cd %s;python manage.py makemessages -a -d djangojs' % self.django_project_path
+                )
+                run('cd %s;python manage.py compilemessages' % self.django_project_path)
+
     def run_post_build_hooks(self):
         for hook in self.post_build_hooks:
             hook()
 
-    @task_method
     def restart_services(self):
         with mode_sudo():
-            if self.web_server == 'apache':
-                run('service apache2 restart', pty=False)
-            elif self.web_server == 'nginx':
-                run('service nginx restart')
-                run('uwsgi --ini %s' % self.uwsgi_ini_path)
-            run('service postgresql restart')
+            if self.deploy_web_server:
+                if self.web_server == 'apache':
+                    run('service apache2 restart', pty=False)
+                elif self.web_server == 'nginx':
+                    run('service nginx restart')
+                    run('uwsgi --ini %s' % self.uwsgi_ini_path)
+            if self.deploy_database:
+                run('service postgresql restart')
 
-    @task_method
     def use_vagrant(self):
         env.user = 'vagrant'
         env.hosts = ['127.0.0.1:2222']
@@ -373,7 +454,6 @@ class DjangoStack(TaskSet):
         result = local('vagrant ssh-config | grep IdentityFile', capture=True)
         env.key_filename = result.split()[1][1:-1]  # parse IdentityFile
 
-    @task_method
     def create_django_admin_user(self):
         # TODO: make this idempotent:
         if self.django_project_path:
@@ -388,5 +468,5 @@ class DjangoStack(TaskSet):
             )
 
 
-class InvalidKwargsException(Exception):
+class InvalidArgumentException(Exception):
     pass

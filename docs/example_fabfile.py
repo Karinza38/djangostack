@@ -15,10 +15,13 @@ kwargs = {
     'django_project_requirements_path': '/var/django/project/django_dir/requirements.txt',
     'django_static_path': '/var/django/project/django_dir/static/',
     'django_local_settings_name': 'localsettings.py',
-    'django_local_settings_path': '/var/django/project/django_dir/'
+    'django_local_settings_path': '/var/django/project/django_dir/',
+    'django_locale_path': '/var/django/project/django_dir/locale/',
+    'use_transifex': True,
+    'transifexrc_name': '.transifexrc'
 }
 
-# # Nginx/uwsgi setup without uwsgi_ini_name/uwsgi_params_name set
+# Nginx/uwsgi setup without uwsgi_ini_name/uwsgi_params_name set
 # kwargs = {
 #     'web_server': 'nginx',
 #     'web_server_config_name': 'nginx/nginx.conf',
@@ -34,10 +37,13 @@ kwargs = {
 #     'django_project_requirements_path': '/var/django/project/django_dir/requirements.txt',
 #     'django_static_path': '/var/django/project/django_dir/static/',
 #     'django_local_settings_name': 'localsettings.py',
-#     'django_local_settings_path': '/var/django/project/django_dir/'
+#     'django_local_settings_path': '/var/django/project/django_dir/',
+#     'django_locale_path': '/var/django/project/django_dir/locale/',
+#     'use_transifex': True,
+#     'transifexrc_name': '.transifexrc'
 # }
-#
-# # Nginx/uwsgi setup with uwsgi_ini_name/uwsgi_params_name set
+
+# Nginx/uwsgi setup with uwsgi_ini_name/uwsgi_params_name set
 # kwargs = {
 #     'web_server': 'nginx',
 #     'web_server_config_name': 'nginx/nginx.conf',
@@ -55,7 +61,42 @@ kwargs = {
 #     'django_project_requirements_path': '/var/django/project/django_dir/requirements.txt',
 #     'django_static_path': '/var/django/project/django_dir/static/',
 #     'django_local_settings_name': 'localsettings.py',
-#     'django_local_settings_path': '/var/django/project/django_dir/'
+#     'django_local_settings_path': '/var/django/project/django_dir/',
+#     'django_locale_path': '/var/django/project/django_dir/locale/',
+#     'use_transifex': True,
+#     'transifexrc_name': '.transifexrc'
+# }
+
+# SCM deployment only
+# kwargs = {
+#     'deploy_scm': True,
+#     'deploy_database': False,
+#     'deploy_django': False,
+#     'deploy_web_server': False
+# }
+
+# Database deployment only
+# kwargs = {
+#     'deploy_scm': False,
+#     'deploy_database': True,
+#     'deploy_django': False,
+#     'deploy_web_server': False
+# }
+
+# Django deployment only
+# kwargs = {
+#     'deploy_scm': False,
+#     'deploy_database': False,
+#     'deploy_django': True,
+#     'deploy_web_server': False
+# }
+
+# Web Server deployment only
+# kwargs = {
+#     'deploy_scm': False,
+#     'deploy_database': False,
+#     'deploy_django': False,
+#     'deploy_web_server': True
 # }
 
 site = DjangoStack('project_name', **kwargs)
