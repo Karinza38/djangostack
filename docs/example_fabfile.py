@@ -10,12 +10,15 @@ kwargs = {
     'database_user': 'user',
     'database_password': 'password',
     'database_dump_type': 'SQL',
+    'pg_hba_conf_name': 'postgresql/pg_hba.conf',
+    'postgresql_conf_name': 'postgresql/postgresql.conf',
     'django_version_number': '1.6.2',
     'django_project_path': '/var/django/project/django_dir/',
     'django_project_requirements_path': '/var/django/project/django_dir/requirements.txt',
     'django_static_path': '/var/django/project/django_dir/static/',
     'django_local_settings_name': 'localsettings.py',
     'django_local_settings_path': '/var/django/project/django_dir/',
+    'make_messages_args': '--ignore=app1/* --ignore=app2/*',
     'django_locale_path': '/var/django/project/django_dir/locale/',
     'use_transifex': True,
     'transifexrc_name': '.transifexrc'
@@ -32,12 +35,15 @@ kwargs = {
 #     'database_user': 'user',
 #     'database_password': 'password',
 #     'database_dump_type': 'SQL',
+#     'pg_hba_conf_name': 'postgresql/pg_hba.conf',
+#     'postgresql_conf_name': 'postgresql/postgresql.conf',
 #     'django_version_number': '1.6.2',
 #     'django_project_path': '/var/django/project/django_dir/',
 #     'django_project_requirements_path': '/var/django/project/django_dir/requirements.txt',
 #     'django_static_path': '/var/django/project/django_dir/static/',
 #     'django_local_settings_name': 'localsettings.py',
 #     'django_local_settings_path': '/var/django/project/django_dir/',
+#     'make_messages_args': '--ignore=app1/* --ignore=app2/*'
 #     'django_locale_path': '/var/django/project/django_dir/locale/',
 #     'use_transifex': True,
 #     'transifexrc_name': '.transifexrc'
@@ -56,15 +62,18 @@ kwargs = {
 #     'database_user': 'user',
 #     'database_password': 'password',
 #     'database_dump_type': 'SQL',
+#     'pg_hba_conf_name': 'postgresql/pg_hba.conf',
+#     'postgresql_conf_name': 'postgresql/postgresql.conf',
 #     'django_version_number': '1.6.2',
 #     'django_project_path': '/var/django/project/django_dir/',
 #     'django_project_requirements_path': '/var/django/project/django_dir/requirements.txt',
 #     'django_static_path': '/var/django/project/django_dir/static/',
 #     'django_local_settings_name': 'localsettings.py',
 #     'django_local_settings_path': '/var/django/project/django_dir/',
+#     'make_messages_args': '--ignore=app1/* --ignore=app2/*'
 #     'django_locale_path': '/var/django/project/django_dir/locale/',
 #     'use_transifex': True,
-#     'transifexrc_name': '.transifexrc'
+#     'transifexrc_name': '.transifexrc',
 # }
 
 # SCM deployment only
@@ -100,15 +109,37 @@ kwargs = {
 # }
 
 site = DjangoStack('project_name', **kwargs)
-site.add_checkout('ssh://hg@bitbucket.org/account/project', '/var/django/project/')
+site.add_checkout(
+    'ssh://hg@bitbucket.org/account/project', '/var/django/project/', **{
+        'attributes': [
+            {
+                'dir_path': '/var/django/', 'mode': None, 'owner': 'www-data', 'group': 'www-data',
+                'recursive': True
+            },
+            {
+                'dir_path': '/var/django/project/', 'mode': None, 'owner': 'www-data',
+                'group': 'www-data', 'recursive': True
+            }
+        ],
+        'uids': [
+            {
+                'dir_path': '/var/django/project/django_dir/logs/', 'dirs': False,
+                'files': True
+            }
+        ],
+        'gids': [
+            {'dir_path': '/var/django/project/', 'dirs': True, 'files': True}
+        ]
+    }
+)
 
 
 def pre_build():
-    pass  # To pre build stuff here
+    pass  # Do pre build stuff here
 
 
 def post_build():
-    pass  # To post build stuff here.
+    pass  # Do post build stuff here.
 
 
 site.add_pre_build_hook(pre_build)
