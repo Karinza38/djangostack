@@ -45,19 +45,19 @@ DjangoStack
 add_pre_build_hook(func):
 ```
 
-Calling this method with a function argument on a DjangoStack instance will ensure that function is called before that instance executes any internal code.
+Calling this function on a DjangoStack instance with a function passed as the only argument, ensures that function is called before the instance executes any internal code.
 
 ```
 add_post_build_hook(func):
 ```
 
-Calling this method with a function argument on a DjangoStack instance will ensure that function is called after that instance executes any internal code.
+Calling this function on a DjangoStack instance with a function passed as the only argument, ensures that function is called after the instance executes any internal code.
 
 ```
 add_checkout(source_repository, destination, **kwargs):
 ```
 
-Calling this method with source_repository and destination arguments will ensure that repository is cloned to the destination on the deployed server. This is done after the web server, database and Django are installed but before the web server is configured, database restored and configured and any Django operations are performed.
+Calling this function with source_repository and destination arguments will ensure that repository is cloned to the destination on the deployed server. This is done after the web server, database and Django are installed but before the web server is configured, database restored and configured and any Django operations are performed.
 kwargs is an optional dictionary of keyword arguments that enables permissions, uid and gid to be set on repository directories and files. Expected format is:
 
 ```
