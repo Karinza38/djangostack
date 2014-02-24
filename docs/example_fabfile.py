@@ -123,7 +123,7 @@ site.add_checkout(
         ],
         'uids': [
             {
-                'dir_path': '/var/django/project/django_dir/logs/', 'dirs': False,
+                'dir_path': '/var/django/project/logs/', 'dirs': False,
                 'files': True
             }
         ],
