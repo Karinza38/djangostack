@@ -74,7 +74,7 @@ kwargs is an optional dictionary of keyword arguments that enables permissions, 
       ],
       'uids': [
           {
-              'dir_path': '/var/django/webfuels/project/logs/', 'dirs': False,
+              'dir_path': '/var/django/project/logs/', 'dirs': False,
               'files': True
           }
       ],
