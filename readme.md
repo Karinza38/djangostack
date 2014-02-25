@@ -3,10 +3,10 @@ DjangoStack
 
 ## Deploys the Django Stack to a remote server (Linux, Apache/Nginx, Postgresql, Mercurial/Git)
 
-### Required Arguments
+### DjangoStack Required Arguments
  - **project_name**: The name of the project to be deployed
 
-### Optional Arguments
+### DjangoStack Optional Arguments
  - **deploy_scm**: Deploy version control to the deployed server (default: True)
  - **deploy_database**: Deploy database to the deployed server (default: True)
  - **deploy_django**: Deploy Django to the deployed server (default: True)
@@ -38,8 +38,7 @@ DjangoStack
  - **use_transifex**: Use transifex to pull the latest po translation files to the django_locale_path directory (default: None) Note transifexrc_name and django_locale_path must be set if this argument is True
  - **transifexrc_name**: The name of the local transifexrc file that will be copied to the deployed server (default: None) Note this argument and django_locale_path must be set if use_transifex is True
 
-
-### Useful Deployment Functions
+### Useful DjangoStack Deployment Functions
 
 ```
 add_pre_build_hook(func):
@@ -87,14 +86,25 @@ kwargs is an optional dictionary of keyword arguments that enables permissions, 
 
 Please see https://github.com/hillman/djangostack/blob/master/docs/example_fabfile.py for an example fabfile.py
 
-To deploy DjangoStack from your fabfile run:
+To deploy DjangoStack from this example fabfile run:
 
 ```
-fab -H username@remote_server_ip:22 setup_stack
+fab -H username@remote_server_ip:22 DeployFullStack
 ```
 
 or from a vagrant machine:
 
 ```
-fab -H vagrant@127.0.0.1:2222 setup_stack
+fab -H vagrant@127.0.0.1:2222 DeployFullStack
 ```
+
+Other options:
+ - DeploySCM
+ - DeployDatabase
+ - DeployDjango
+ - DeployWebServer
+
+Note the end result is a call to setup_stack on the DjangoStack instance.
+
+### SCM
+**Important** If deploy_scm is True or repositories are added via the add_checkout function, a private and public bitbucket key must be provided that will enable DjangoStack to pull source code down to the deployment server. DjangoStack will look locally (i.e. in the same directory as the deployment fabfile) for 2 specific files which contain these keys: deploykey (private key) and deploykey.pub (public key).

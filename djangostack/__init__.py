@@ -143,8 +143,7 @@ class DjangoStack(TaskSet):
         self.packages.append(package_name)
 
     def add_checkout(self, source_repository, destination, **kwargs):
-        if self.deploy_scm:
-            self.repositories.append([source_repository, destination, kwargs])
+        self.repositories.append([source_repository, destination, kwargs])
 
     def add_pre_build_hook(self, func):
         self.pre_build_hooks.append(func)
@@ -226,7 +225,7 @@ class DjangoStack(TaskSet):
 
         self.run_pre_build_hooks()
 
-        if self.deploy_scm:
+        if self.deploy_scm or self.repositories:
             self.setup_scm()
 
         if self.deploy_database:
@@ -245,7 +244,7 @@ class DjangoStack(TaskSet):
             self.create_database_user()
             self.create_database()
 
-        if self.deploy_scm:
+        if self.deploy_scm or self.repositories:
             self.setup_bitbucket_key()
             self.checkout_code()
 
