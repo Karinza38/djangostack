@@ -67,18 +67,18 @@ kwargs is an optional dictionary of keyword arguments that enables permissions, 
               'recursive': True
           },
           {
-              'dir_path': '/var/django/webfuels/', 'mode': None, 'owner': 'www-data',
+              'dir_path': '/var/django/project/', 'mode': None, 'owner': 'www-data',
               'group': 'www-data', 'recursive': True
           }
       ],
       'uids': [
           {
-              'dir_path': '/var/django/webfuels/velocity/velocity/logs/', 'dirs': False,
+              'dir_path': '/var/django/project/logs/', 'dirs': False,
               'files': True
           }
       ],
       'gids': [
-          {'dir_path': '/var/django/webfuels/', 'dirs': True, 'files': True}
+          {'dir_path': '/var/django/project/', 'dirs': True, 'files': True}
       ]
 }
 ```
