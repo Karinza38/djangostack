@@ -10,6 +10,11 @@ from cuisine_postgresql import postgresql_role_ensure, \
 
 
 class DjangoStack(TaskSet):
+    """
+    A fabric/cuisine script for building a complete django stack using
+    Linux, Apache/Nginx, Postgresql, Python, Django.
+
+    """
     deploy_scm = True  # Deploy SCM
     deploy_database = True  # Deploy Database
     deploy_django = True  # Deploy Django
@@ -32,8 +37,8 @@ class DjangoStack(TaskSet):
     database_password = None  # Database user password
     database_dump_type = 'SQL'  # Database dump type
     database_dump_name = 'dbdump.txt'  # Local database dump file
-    pg_hba_conf_name = None
-    postgresql_conf_name = None
+    pg_hba_conf_name = None  # Local pg_hba.conf file name
+    postgresql_conf_name = None  # Local postgresql.conf file name
     django_project_path = None  # Where the django project will be pulled to
     django_project_requirements_path = None  # Where the django project's requirements file resides
     django_static_path = None  # Path to static dir if django static files are served locally
@@ -49,6 +54,7 @@ class DjangoStack(TaskSet):
     transifexrc_name = None  # Local .transifexrc file name
 
     def __init__(self, project_name, **kwargs):
+        # Initialize
         self.project_name = project_name
         self.deploy_scm = kwargs.get('deploy_scm', self.deploy_scm)
         self.deploy_database = kwargs.get('deploy_database', self.deploy_database)
@@ -133,46 +139,54 @@ class DjangoStack(TaskSet):
         self.pre_build_hooks = []
         self.post_build_hooks = []
 
-        # check for deploy key file
-        # check for apache config file
-
     def add_additional_python_dependency(self, dependency):
+        # Append python dependency to python installation list.
         self.python_dependencies.append(dependency)
 
     def add_additional_package(self, package_name):
+        # Append system package to system installation list.
         self.packages.append(package_name)
 
     def add_checkout(self, source_repository, destination, **kwargs):
+        # Append repository to clone list.
         self.repositories.append([source_repository, destination, kwargs])
 
     def add_pre_build_hook(self, func):
+        # Append func to pre deployment task list.
         self.pre_build_hooks.append(func)
 
     def add_post_build_hook(self, func):
+        # Append func to post deployment task list.
         self.post_build_hooks.append(func)
 
     def set_dir_attribs(self, dir_path, mode=None, owner=None, group=None, recursive=True):
+        # Wrapper for calling fabric's dir_attribs function.
         with mode_sudo():
             dir_attribs(dir_path, mode=mode, owner=owner, group=group, recursive=recursive)
 
     def set_uid(self, dir_path, dirs=True, files=True):
+        # Call setuid (or u+s) on directories and files under dir_path.
         if dirs:
             sudo("find %s -type d -exec chmod u+s '{}' \;" % dir_path)
         if files:
             sudo("find %s -type f -exec chmod u+s '{}' \;" % dir_path)
 
     def set_gid(self, dir_path, dirs=True, files=True):
+        # Call setgid (or g+s) on directories and files under dir_path.
         if dirs:
             sudo("find %s -type d -exec chmod g+s '{}' \;" % dir_path)
         if files:
             sudo("find %s -type f -exec chmod g+s '{}' \;" % dir_path)
 
     def _validate_boolean_input(self, input):
+        # Validate a boolean input (i.e. Yes or No).
         if input not in ['y', 'Y', 'n', 'N']:
             raise InvalidArgumentException('Please enter y (yes) or n (no).')
         return input
 
     def _pre_build(self):
+        # Internal pre build function that checks if DjangoStack has been deployed
+        # on the target server before. Prompts for confirmation to proceed if it has.
         with mode_sudo():
             if exists('~/.djangostack'):
                 print('\nIt appears that DjangoStack has been deployed to this server before:')
@@ -187,6 +201,9 @@ class DjangoStack(TaskSet):
                     abort('DjangoStack deployment aborted.')
 
     def _post_build(self):
+        # Internal post build function that creates a data file containing the
+        # build timestamp and some build data. The created file is used primarily
+        # by _pre_build.
         now = datetime.datetime.now()
         sudo('touch ~/.djangostack')
         append(
@@ -203,6 +220,8 @@ class DjangoStack(TaskSet):
         )
 
     def _update_repository_permissions(self):
+        # Processes the kwargs for each item in self.repositories and sets directory/file
+        # attributes, uids and guids.
         for source_repository, destination, kwargs in self.repositories:
             dir_attribs = kwargs.get('dir_attribs')
             uids = kwargs.get('uids')
@@ -219,6 +238,7 @@ class DjangoStack(TaskSet):
 
     @task_method(default=True)
     def setup_stack(self):
+        # The mother function, deploy DjangoStack.
         self._pre_build()
 
         package_update()
@@ -271,25 +291,30 @@ class DjangoStack(TaskSet):
         self._post_build()
 
     def run_pre_build_hooks(self):
+        # Execute all external pre build functions.
         for hook in self.pre_build_hooks:
             hook()
 
     def setup_scm(self):
+        # Set up the SCM.
         if self.scm_type == 'mercurial':
             package_ensure('mercurial')
         elif self.scm_type.lower() == 'git':
             package_ensure('git')
 
     def setup_postgres(self):
+        # Set up postgresql.
         package_ensure('postgresql')
         package_ensure('postgresql-client')
         package_ensure('libpq-dev')
 
     def setup_additional_packages(self):
+        # Install all additional system packages.
         for package_name in self.packages:
             package_ensure(package_name)
 
     def setup_python(self):
+        # Install python and all python dependencies.
         package_ensure('build-essential')
         package_ensure('python')
         package_ensure('python-dev')
@@ -299,6 +324,7 @@ class DjangoStack(TaskSet):
             sudo('pip install %s' % dependency)
 
     def setup_apache(self, destroy_nginx=True):
+        # Setup apache2.
         if destroy_nginx:
             with mode_sudo():
                 with warn_only():
@@ -317,6 +343,7 @@ class DjangoStack(TaskSet):
             time.sleep(15)
 
     def setup_nginx(self, destroy_apache=True):
+        # Setup nginx.
         if destroy_apache:
             with mode_sudo():
                 with warn_only():
@@ -328,9 +355,11 @@ class DjangoStack(TaskSet):
         sudo('pip install uwsgi')
 
     def create_database_user(self):
+        # Create a postgresql database user.
         postgresql_role_ensure(self.database_user, self.database_password, createdb=True)
 
     def create_database(self):
+        # Create a postgresql database.
         postgresql_database_ensure(
             self.database_name,
             owner=self.database_user,
@@ -340,6 +369,7 @@ class DjangoStack(TaskSet):
         )
 
     def setup_bitbucket_key(self):
+        # Setup access to a bitbucket account.
         with mode_sudo():
             dir_ensure('/root/.ssh/')
         put('deploykey', '~/id_rsa')
@@ -357,7 +387,9 @@ class DjangoStack(TaskSet):
             run("echo '%s' >> /root/.ssh/known_hosts" % bitbuckethost)
 
     def checkout_code(self):
+        # Checkout all code added to self.repositories.
         scm_command = scm_dir = scm_ignore = None
+        # Determine SCM type and set variables accordingly.
         if self.scm_type.lower() == 'mercurial':
             scm_command = 'hg clone'
             scm_dir = '.hg'
@@ -367,20 +399,29 @@ class DjangoStack(TaskSet):
             scm_dir = '.git'
             scm_ignore = '.gitignore'
 
+        # Primarily due to Microsoft Windows issues, we pull all repositories initially
+        # to the /tmp/project_name directory, copy them to their expected directory and
+        # finally delete the /tmp/project_name directory.
         run('rm -fr /tmp/%s/' % self.project_name)
         for source_repository, destination, kwargs in self.repositories:
             with mode_sudo():
+                # First remove all trace of previous clones.
                 run('rm -fr %s*' % destination)
                 run('rm -fr %s%s' % (destination, scm_dir))
                 run('rm -fr %s%s' % (destination, scm_ignore))
+                # Clone
                 run('%s %s %s' % (scm_command, source_repository, '/tmp/%s/' % self.project_name))
+                # Ensure destination exists.
                 run('mkdir -p %s' % destination)
+                # Copy
                 run('cp -R /tmp/%s/* %s' % (self.project_name, destination))
                 run('cp -R /tmp/%s/%s %s' % (self.project_name, scm_dir, destination))
                 run('cp /tmp/%s/%s %s' % (self.project_name, scm_ignore, destination))
+                # Delete /tmp/project_name
                 run('rm -fr /tmp/%s/' % self.project_name)
 
     def install_django_project_requirements(self):
+        # Install all Django project requirements.
         if self.django_project_requirements_path:
             if not self.deploy_database:
                 # Ensures dependencies are installed if deploy_database is False
@@ -390,6 +431,8 @@ class DjangoStack(TaskSet):
             sudo('pip install -r %s' % self.django_project_requirements_path)
 
     def setup_web_server(self):
+        # Setup web server. Note the actually server software has already
+        # been installed by this stage, this is more of a configuration step.
         if self.web_server == 'apache':
             with mode_sudo():
                 run('rm -f /etc/apache2/sites-enabled/000-default')
@@ -427,6 +470,7 @@ class DjangoStack(TaskSet):
                     )
 
     def restore_database_configuration(self):
+        # Restore a postgresql database pg_hba.conf and postgresql.conf configuration.
         with mode_sudo():
             if self.pg_hba_conf_name:
                 file_path = run("find /etc/postgresql -name 'pg_hba.conf'")
@@ -440,6 +484,7 @@ class DjangoStack(TaskSet):
                     run('chown postgres:postgres %s' % file_path)
 
     def restore_database_dump(self):
+        # Restore a postgresql database dump.
         with mode_sudo():
             if not exists('/var/lib/postgresql/%s' % self.database_dump_name):
                 put(self.database_dump_name, '/var/lib/postgresql/', use_sudo=True)
@@ -458,6 +503,7 @@ class DjangoStack(TaskSet):
                 )
 
     def syncdb(self):
+        # Django syncdb and South migrate.
         if self.django_project_path and self.run_sync_db:
             sudo(
                 'cd %s;python manage.py syncdb --noinput;'
@@ -465,6 +511,7 @@ class DjangoStack(TaskSet):
             )
 
     def collect_static(self):
+        # Django collectstatic.
         if self.django_project_path:
             with mode_sudo():
                 if self.django_static_path:
@@ -472,6 +519,7 @@ class DjangoStack(TaskSet):
                 run('cd %s;python manage.py collectstatic --noinput' % self.django_project_path)
 
     def move_local_settings_file(self):
+        # Move a Django local_settings.py file into place.
         if self.django_local_settings_name and self.django_local_settings_path:
             put(
                 self.django_local_settings_name, self.django_local_settings_path,
@@ -479,6 +527,8 @@ class DjangoStack(TaskSet):
             )
 
     def make_and_compile_messages(self, use_transifex=False):
+        # Django makemessages and compilemessages. This function will also attempt to
+        # pull po files from transifex if the correct arguments are specified.
         if use_transifex and self.django_locale_path:
             put(self.transifexrc_name, '~/', use_sudo=True)
             if dir_exists('%s.tx' % self.django_locale_path):
@@ -501,10 +551,12 @@ class DjangoStack(TaskSet):
                 run('cd %s;python manage.py compilemessages' % self.django_project_path)
 
     def run_post_build_hooks(self):
+        # Execute all external post build functions.
         for hook in self.post_build_hooks:
             hook()
 
     def restart_services(self):
+        # Restart the relevant services.
         with mode_sudo():
             if self.deploy_web_server:
                 if self.web_server == 'apache':

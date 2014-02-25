@@ -2,6 +2,8 @@ from djangostack import DjangoStack
 from fabric.api import put, sudo, warn_only
 from cuisine import dir_attribs, mode_sudo
 
+__all__ = ['DeployFullStack', 'DeploySCM', 'DeployDatabase', 'DeployDjango', 'DeployWebServer']
+
 
 class Deploy(object):
     def __init__(self, project_name='project_name'):
