@@ -280,9 +280,9 @@ class DjangoStack(TaskSet):
                 self.restore_database_dump()
 
         if self.deploy_django:
+            self.move_local_settings_file()
             self.syncdb()
             self.collect_static()
-            self.move_local_settings_file()
             self.make_and_compile_messages(use_transifex=self.use_transifex)
 
         self.run_post_build_hooks()
