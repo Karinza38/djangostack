@@ -138,6 +138,7 @@ class DjangoStack(TaskSet):
         self.packages.extend(self.default_additional_packages)
         self.pre_build_hooks = []
         self.post_build_hooks = []
+        self.post_checkout_hooks = []
 
     def add_additional_python_dependency(self, dependency):
         # Append python dependency to python installation list.
@@ -158,6 +159,10 @@ class DjangoStack(TaskSet):
     def add_post_build_hook(self, func):
         # Append func to post deployment task list.
         self.post_build_hooks.append(func)
+
+    def add_post_checkout_hook(self, func):
+        # Append func to post checkout task list.
+        self.post_checkout_hooks.append(func)
 
     def set_dir_attribs(self, dir_path, mode=None, owner=None, group=None, recursive=True):
         # Wrapper for calling fabric's dir_attribs function.
@@ -419,6 +424,10 @@ class DjangoStack(TaskSet):
                 run('cp /tmp/%s/%s %s' % (self.project_name, scm_ignore, destination))
                 # Delete /tmp/project_name
                 run('rm -fr /tmp/%s/' % self.project_name)
+
+        # Execute all external post checkout functions.
+        for hook in self.post_checkout_hooks:
+            hook()
 
     def install_django_project_requirements(self):
         # Install all Django project requirements.

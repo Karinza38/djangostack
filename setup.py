@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='DjangoStack',
-    version='0.3.0',
+    version='0.3.1',
     author='Jamie Hillman',
     author_email='mail@jamiehillman.co.uk',
     packages=['djangostack'],
