@@ -24,7 +24,7 @@ class DjangoStack(TaskSet):
     SCM_TYPES = ['mercurial', 'git']
     default_additional_packages = ['vim', 'gettext']  # System packages to install
     # Python packages to install
-    default_python_dependencies = ['psycopg2', 'south']
+    default_python_dependencies = ['psycopg2']
     web_server = 'apache'  # Web server to install
     web_server_config_name = 'web_server_config'  # Local web server config file name
     uwsgi_ini_name = None  # Local uwsgi.ini file name (nginx only)
@@ -62,8 +62,6 @@ class DjangoStack(TaskSet):
             self.default_python_dependencies.remove('psycopg2')
         self.deploy_django = kwargs.get('deploy_django', self.deploy_django)
         self.deploy_web_server = kwargs.get('deploy_web_server', self.deploy_web_server)
-        if not self.deploy_web_server:
-            self.default_python_dependencies.remove('south')
         self.restore_database = kwargs.get('restore_database', self.restore_database)
         self.python_dependencies = self.default_python_dependencies
         self.web_server = kwargs.get('web_server', self.web_server)
@@ -286,7 +284,7 @@ class DjangoStack(TaskSet):
 
         if self.deploy_django:
             self.move_local_settings_file()
-            self.syncdb()
+            self.migrate()
             self.collect_static()
             self.make_and_compile_messages(use_transifex=self.use_transifex)
 
@@ -335,7 +333,7 @@ class DjangoStack(TaskSet):
                 with warn_only():
                     run('service nginx stop')
                     run('/usr/bin/yes | sudo pip uninstall uwsgi')
-                run('apt-get -y purge nginx nginx-common')
+                    run('apt-get -y purge nginx nginx-common')
                 run('apt-get -y autoremove')
 
         had_apache = package_ensure('apache2')
@@ -353,7 +351,7 @@ class DjangoStack(TaskSet):
             with mode_sudo():
                 with warn_only():
                     run('service apache2 stop')
-                run('apt-get -y purge apache2 apache2-utils apache2.2-bin apache2-common')
+                    run('apt-get -y purge apache2 apache2-utils apache2.2-bin apache2-common')
                 run('apt-get -y autoremove')
 
         package_ensure('nginx')
@@ -361,7 +359,7 @@ class DjangoStack(TaskSet):
 
     def create_database_user(self):
         # Create a postgresql database user.
-        postgresql_role_ensure(self.database_user, self.database_password, createdb=True)
+        postgresql_role_ensure(self.database_user, self.database_password, createdb=True, superuser=True)
 
     def create_database(self):
         # Create a postgresql database.
@@ -511,12 +509,11 @@ class DjangoStack(TaskSet):
                     user='postgres'
                 )
 
-    def syncdb(self):
-        # Django syncdb and South migrate.
+    def migrate(self):
+        # Django migrate.
         if self.django_project_path and self.run_sync_db:
             sudo(
-                'cd %s;python manage.py syncdb --noinput;'
-                'python manage.py migrate --noinput;' % self.django_project_path
+                'cd %s;python manage.py migrate --noinput;' % self.django_project_path
             )
 
     def collect_static(self):
