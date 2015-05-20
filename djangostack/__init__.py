@@ -19,7 +19,7 @@ class DjangoStack(TaskSet):
     deploy_database = True  # Deploy Database
     deploy_django = True  # Deploy Django
     deploy_web_server = True  # Deploy Web Server
-    restore_database = True  # Restore Database
+    restore_database = False  # Restore Database
     WEB_SERVERS = ['apache', 'nginx']
     SCM_TYPES = ['mercurial', 'git']
     default_additional_packages = ['vim', 'gettext']  # System packages to install
