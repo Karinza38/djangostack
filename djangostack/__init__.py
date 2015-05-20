@@ -45,7 +45,7 @@ class DjangoStack(TaskSet):
     django_local_settings_name = None  # If given, an un-tracked local settings file name
     django_local_settings_path = None  # If given, the path to place the local settings file
     django_version_number = ''  # If not specified the latest version will be installed
-    run_sync_db = True  # It might be required to deploy a django project but not sync the database
+    run_migrations = True  # It might be required to deploy a django project but not sync the database
     make_messages_args = ''  # Additional arguments to the django makemessages command.
     django_locale_path = None  # Django locale directory path
     # Use transifex to force pull updated translations before making and compiling translations -
@@ -113,7 +113,7 @@ class DjangoStack(TaskSet):
             kwargs.get('django_local_settings_path', self.django_local_settings_path)
         self.django_version_number = \
             kwargs.get('django_version_number', self.django_version_number)
-        self.run_sync_db = kwargs.get('run_sync_db', self.run_sync_db)
+        self.run_migrations = kwargs.get('run_migrations', self.run_migrations)
         self.make_messages_args = kwargs.get('make_messages_args', self.make_messages_args)
         self.django_locale_path = kwargs.get('django_locale_path', self.django_locale_path)
         self.use_transifex = kwargs.get('use_transifex', self.use_transifex)
@@ -511,7 +511,7 @@ class DjangoStack(TaskSet):
 
     def migrate(self):
         # Django migrate.
-        if self.django_project_path and self.run_sync_db:
+        if self.django_project_path and self.run_migrations:
             sudo(
                 'cd %s;python manage.py migrate --noinput;' % self.django_project_path
             )
