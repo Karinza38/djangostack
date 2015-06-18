@@ -1,4 +1,4 @@
 fabric
-cuisine
+cuisine==0.7.6
 cuisine_postgresql
 fabric_taskset

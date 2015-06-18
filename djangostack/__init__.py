@@ -366,7 +366,7 @@ class DjangoStack(TaskSet):
         postgresql_database_ensure(
             self.database_name,
             owner=self.database_user,
-            encoding='utf8',
+            encoding='UTF8',
             template='template0',
             locale='en_US.UTF-8'
         )
