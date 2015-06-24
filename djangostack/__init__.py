@@ -19,7 +19,7 @@ class DjangoStack(TaskSet):
     deploy_database = True  # Deploy Database
     deploy_django = True  # Deploy Django
     deploy_web_server = True  # Deploy Web Server
-    deploy_postgis = False # Deploy a Postigs installation for postgres
+    deploy_postgis = True # Deploy a Postigs installation for postgres
     restore_database = False  # Restore Database
     WEB_SERVERS = ['apache', 'nginx']
     SCM_TYPES = ['mercurial', 'git']
@@ -216,6 +216,7 @@ class DjangoStack(TaskSet):
                 'Deployed on: %s at %s' % (now.strftime('%d/%m/%Y'), now.strftime('%H:%M:%S')),
                 'SCM Deployed: %s' % self.deploy_scm,
                 'Database Deployed: %s' % self.deploy_database,
+                'Postgis Deployed: %s' % self.deploy_postgis,
                 'Django Deployed: %s' % self.deploy_django,
                 'Web Server Deployed: %s' % self.deploy_web_server,
                 'Database Restored: %s' % self.restore_database
