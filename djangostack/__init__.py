@@ -19,6 +19,7 @@ class DjangoStack(TaskSet):
     deploy_database = True  # Deploy Database
     deploy_django = True  # Deploy Django
     deploy_web_server = True  # Deploy Web Server
+    deploy_postgis = False # Deploy a Postigs installation for postgres
     restore_database = False  # Restore Database
     WEB_SERVERS = ['apache', 'nginx']
     SCM_TYPES = ['mercurial', 'git']
@@ -305,11 +306,26 @@ class DjangoStack(TaskSet):
         elif self.scm_type.lower() == 'git':
             package_ensure('git')
 
+    def setup_postgis(self):
+        # Set up postgis
+        package_ensure('postgis')
+
     def setup_postgres(self):
         # Set up postgresql.
         package_ensure('postgresql')
         package_ensure('postgresql-client')
         package_ensure('libpq-dev')
+        if self.deploy_postgis:
+            self.setup_postgis()
+
+    def setup_postgis_for_database(self):
+        # Install the postgis extensions.
+        if self.deploy_postgis:
+            with mode_sudo():
+                run('psql -d {0} -c "CREATE EXTENSION postgis;" -d {0}'.format(self.database_name), user='postgres')
+                run('psql -d {0} -c "CREATE EXTENSION fuzzystrmatch;" -d {0}'.format(self.database_name), user='postgres')
+                run('psql -d {0} -c "CREATE EXTENSION postgis_topology;" -d {0}'.format(self.database_name), user='postgres')
+                run('psql -d {0} -c "CREATE EXTENSION postgis_tiger_geocoder;" -d {0}'.format(self.database_name), user='postgres')
 
     def setup_additional_packages(self):
         # Install all additional system packages.
@@ -370,6 +386,9 @@ class DjangoStack(TaskSet):
             template='template0',
             locale='en_US.UTF-8'
         )
+
+        if self.deploy_postgis:
+            self.setup_postgis_for_database()
 
     def setup_bitbucket_key(self):
         # Setup access to a bitbucket account.
@@ -497,17 +516,25 @@ class DjangoStack(TaskSet):
                 put(self.database_dump_name, '/var/lib/postgresql/', use_sudo=True)
             run('chown postgres /var/lib/postgresql/%s' % self.database_dump_name)
 
-            if self.database_dump_type == 'SQL':
-                run(
-                    'cd /var/lib/postgresql;'
-                    'psql %s < %s' % (self.database_name, self.database_dump_name), user='postgres'
-                )
+            if self.deploy_postgis:
+                if self.database_dump_type == 'SQL':
+                    run(
+                        'cd /var/lib/postgresql;'
+                        'psql %s < %s' % (self.database_name, self.database_dump_name), user='postgres'
+                    )
+                else:
+                    run(
+                        'cd /var/lib/postgresql;'
+                        'pg_restore -d %s %s' % (self.database_name, self.database_dump_name),
+                        user='postgres'
+                    )
             else:
-                run(
-                    'cd /var/lib/postgresql;'
-                    'pg_restore -d %s %s' % (self.database_name, self.database_dump_name),
-                    user='postgres'
-                )
+                action_string = "cd /var/lib/postgresql;" \
+                        "perl /usr/share/postgresql/9.3/contrib/postgis-2.1/postgis_restore.pl " \
+                        "{0} | psql -h localhost -U postgres {1} 2> errors.txt".format(self.database_dump_name,
+                                                                                       self.database_name)
+
+                sudo(action_string, user='postgres')
 
     def migrate(self):
         # Django migrate.
