@@ -53,6 +53,7 @@ class DjangoStack(TaskSet):
     # django_locale_path must contain a .tx directory which contains the transifex config file
     use_transifex = False
     transifexrc_name = None  # Local .transifexrc file name
+    verbosity = None   # Verbosity setting
 
     def __init__(self, project_name, **kwargs):
         # Initialize
@@ -119,6 +120,7 @@ class DjangoStack(TaskSet):
         self.django_locale_path = kwargs.get('django_locale_path', self.django_locale_path)
         self.use_transifex = kwargs.get('use_transifex', self.use_transifex)
         self.transifexrc_name = kwargs.get('transifexrc_name', self.transifexrc_name)
+        self.verbosity = kwargs.get('verbosity', self.verbosity)
         if self.deploy_django:
             if self.django_version_number != '':
                 self.python_dependencies.append('django==%s' % self.django_version_number)
@@ -309,7 +311,7 @@ class DjangoStack(TaskSet):
 
     def setup_postgis(self):
         # Set up postgis
-        package_ensure('postgis')
+        package_ensure('postgis*')
 
     def setup_postgres(self):
         # Set up postgresql.
@@ -322,11 +324,13 @@ class DjangoStack(TaskSet):
     def setup_postgis_for_database(self):
         # Install the postgis extensions.
         if self.deploy_postgis:
+            sudo('psql -d {0} -c "CREATE EXTENSION  IF NOT EXISTS postgis;" -d {0}'.format(self.database_name), user='postgres')
+            sudo('psql -d {0} -c "CREATE EXTENSION  IF NOT EXISTS fuzzystrmatch;" -d {0}'.format(self.database_name), user='postgres')
+            sudo('psql -d {0} -c "CREATE EXTENSION  IF NOT EXISTS postgis_topology;" -d {0}'.format(self.database_name), user='postgres')
+            sudo('psql -d {0} -c "CREATE EXTENSION  IF NOT EXISTS postgis_tiger_geocoder;" -d {0}'.format(self.database_name), user='postgres')
             with mode_sudo():
-                run('psql -d {0} -c "CREATE EXTENSION postgis;" -d {0}'.format(self.database_name), user='postgres')
-                run('psql -d {0} -c "CREATE EXTENSION fuzzystrmatch;" -d {0}'.format(self.database_name), user='postgres')
-                run('psql -d {0} -c "CREATE EXTENSION postgis_topology;" -d {0}'.format(self.database_name), user='postgres')
-                run('psql -d {0} -c "CREATE EXTENSION postgis_tiger_geocoder;" -d {0}'.format(self.database_name), user='postgres')
+                if not exists('/usr/local/lib/libgeos_c.so'):
+                    run('ln -s /usr/lib/libgeos_c.so.1 /usr/local/lib/libgeos_c.so')
 
     def setup_additional_packages(self):
         # Install all additional system packages.
@@ -373,6 +377,7 @@ class DjangoStack(TaskSet):
 
         package_ensure('nginx')
         sudo('pip install uwsgi')
+        sudo('pip install uwsgitop')
 
     def create_database_user(self):
         # Create a postgresql database user.
