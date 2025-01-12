@@ -1,4 +1,4 @@
-DjangoStack
+ DjangoStack
 -----------
 
 ## Deploys the Django Stack to a remote server (Linux, Apache/Nginx, Postgresql, Mercurial/Git)
